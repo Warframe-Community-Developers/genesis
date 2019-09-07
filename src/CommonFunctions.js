@@ -5,20 +5,20 @@ const { Collection, MessageEmbed } = require('discord.js');
  * Map of emoji names to full types
  * @type {Object}
  */
-const emoji = require('./resources/emoji.json');
+const emoji = require('./assets/emoji');
 
 /**
  * Welcomes
  * @type {string[]}
  */
-const welcomes = require('./resources/welcomes.json');
+const welcomes = require('./assets/welcomes');
 
 const {
   eventTypes, rewardTypes, opts, fissures, syndicates, twitter, conclave, deals, clantech,
   resources, nightwave,
-} = require('./resources/trackables.json');
+} = require('./assets/trackables');
 
-const rssFeeds = require('./resources/rssFeeds');
+const rssFeeds = require('./assets/rssFeeds');
 
 /**
  * API base path
@@ -63,8 +63,8 @@ const duration = {
   day: 60 * 60 * 24,
 };
 
-const missionTypes = require('./resources/missionTypes');
-const factions = require('./resources/factions');
+const missionTypes = require('./assets/missionTypes');
+const factions = require('./assets/factions');
 
 /**
  * Object describing all trackable events

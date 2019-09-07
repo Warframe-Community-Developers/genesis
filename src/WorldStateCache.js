@@ -1,8 +1,8 @@
 'use strict';
 
 const EventEmitter = require('events');
-const { apiBase } = require('./CommonFunctions.js');
-const fetch = require('./resources/Fetcher');
+const { apiBase } = require('./CommonFunctions');
+const fetch = require('./tools/Fetcher');
 
 const worldStateURLs = {
   pc: `${apiBase}/pc`,

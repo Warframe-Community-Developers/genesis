@@ -2,9 +2,9 @@
 
 const locales = {};
 
-require('../resources/locales.json').forEach((locale) => {
+require('../assets/locales.json').forEach((locale) => {
   // eslint-disable-next-line global-require, import/no-dynamic-require
-  locales[locale] = require(`../resources/locales/${locale}.json`);
+  locales[locale] = require(`../assets/locales/${locale}.json`);
 });
 
 const typeInfoRegex = /^:([a-z])(\((.+)\))?/;

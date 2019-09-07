@@ -2,7 +2,7 @@
 
 const BaseEmbed = require('./BaseEmbed.js');
 const { assetBase, wikiBase } = require('../CommonFunctions');
-const syndicates = require('../resources/syndicates.json');
+const syndicates = require('../assets/syndicates.json');
 
 const syndicateThumb = `${assetBase}/img/syndicate.png`;
 

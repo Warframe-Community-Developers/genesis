@@ -1,7 +1,7 @@
 'use strict';
 
 const BaseEmbed = require('./BaseEmbed.js');
-const RaidStat = require('../resources/RaidStat.js');
+const RaidStat = require('../tools/RaidStat.js');
 const { assetBase } = require('../CommonFunctions');
 
 /**

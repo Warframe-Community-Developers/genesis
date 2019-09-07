@@ -4,18 +4,21 @@
   "description": "A Warframe bot for your Discord server or clan :star:",
   "main": "main.js",
   "scripts": {
-    "build-docs": "node_modules/.bin/jsdoc -t ./node_modules/ink-docstrap/template -c .github/docs/jsdoc.conf -R README.md -r main.js src/. -d docs",
     "lint": "npx eslint main.js src/",
     "lint:fix": "npx eslint main.js src/ --fix",
-    "logs": "pm2 logs genesis",
-    "test": "npx eslint main.js src/",
-    "restart": "pm2 delete genesis && npm start && npm run logs",
+    "logs": "pm2 logs genesis-bot genesis-notifier",
+    "logs:bot": "pm2 logs genesis-bot",
+    "logs:notifier": "pm2 logs genesis-notifier",
+    "test": "npm run lint",
+    "restart": "npm run restart:bot",
+    "restart:bot": "pm2 delete genesis-bot && npm start && npm run logs",
+    "restart:notifier": "pm2 delete genesis-notifier",
     "setup": "npm i",
     "start": "pm2 start genesis.json",
     "start:logs": "npm start && npm run logs",
-    "stop": "pm2 delete genesis",
+    "stop": "pm2 delete genesis-bot",
     "uninstall": "pm2 kill && rm -rf node_modules/ && npm uninstall -g pm2",
-    "update:genesis": "pm2 delete genesis && git checkout -- . && git pull && npm i && npm restart || npm start"
+    "update:genesis": "pm2 delete genesis-bot && git checkout -- . && git pull && npm i && npm restart || npm start"
   },
   "repository": {
     "type": "git",

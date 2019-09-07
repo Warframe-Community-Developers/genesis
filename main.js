@@ -1,6 +1,6 @@
 'use strict';
 
-const genManifest = require('./src/tools/generateManifest.js');
+const genManifest = require('./src/tools/generateManifest');
 const Genesis = require('./src/bot');
 
 const localShards = parseInt(process.env.LOCAL_SHARDS, 10) || 1;
