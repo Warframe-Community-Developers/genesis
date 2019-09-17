@@ -41,3 +41,10 @@ jspm_packages
 genesis.json
 .idea/
 mypm2.json
+
+# .env files for environment vars
+# for people who don't like pm2
+.env
+.env.bot
+.env.genesis
+.env.notifier

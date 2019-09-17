@@ -2,6 +2,8 @@
 
 const SQL = require('sql-template-strings');
 
+const logger = require('../../Logger');
+
 class PingsQueries {
   constructor(db) {
     this.db = db;
@@ -115,7 +117,7 @@ class PingsQueries {
           AND item_notifications.channel_id = settings.channel_id;` : SQL`;`);
       return (await this.db.query(query))[0];
     } catch (e) {
-      this.logger.error(e);
+      logger.error(e);
       return [];
     }
   }
@@ -146,7 +148,7 @@ class PingsQueries {
           AND item_notifications.channel_id = settings.channel_id;` : SQL`;`);
       return (await this.db.query(query))[0];
     } catch (e) {
-      this.logger.error(e);
+      logger.error(e);
       return [];
     }
   }

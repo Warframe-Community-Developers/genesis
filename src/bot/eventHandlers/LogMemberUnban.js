@@ -1,7 +1,7 @@
 'use strict';
 
 const Handler = require('../../models/BaseEventHandler');
-const LogEmbed = require('../../../embeds/LogEmbed');
+const LogEmbed = require('../../embeds/LogEmbed');
 
 /**
  * Describes a handler

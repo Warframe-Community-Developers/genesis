@@ -1,144 +1,17 @@
 'use strict';
 
-const Wikia = require('node-wikia');
-const util = require('util');
-
-const exists = util.promisify(require('url-exists'));
-const fetch = require('../tools/Fetcher');
-const { embeds } = require('./NotifierUtils');
-const Broadcaster = require('./Broadcaster');
-const logger = require('../Logger');
+const { WebhookClient } = require('discord.js');
+const io = require('socket.io-client');
 
 const {
-  createGroupedArray, apiBase, apiCdnBase, platforms,
-} = require('../../CommonFunctions');
+  embeds, rest, db, getThumbnailForItem, buildNotifiableData, beats, i18ns, fromNow,
+} = require('./NotifierUtils');
+// const Broadcaster = require('./Broadcaster');
+const logger = require('../Logger');
 
-
-const warframe = new Wikia('warframe');
+const { createGroupedArray, platforms, apiBase } = require('../CommonFunctions');
 
 const syndicates = require('../assets/syndicates.json');
-const I18n = require('../settings/I18n');
-
-const i18ns = {};
-require('../assets/locales.json').forEach((locale) => {
-  i18ns[locale] = I18n.use(locale);
-});
-
-const beats = {};
-
-const between = (activation, platform) => {
-  const activationTs = new Date(activation).getTime();
-  const isBeforeCurr = activationTs < beats[platform].currCycleStart;
-  const isAfterLast = activationTs > (beats[platform].lastUpdate - 60000);
-  return isBeforeCurr && isAfterLast;
-};
-
-async function getThumbnailForItem(query, fWiki) {
-  if (query && !fWiki) {
-    const fq = query
-      .replace(/\d*\s*((?:\w|\s)*)\s*(?:blueprint|receiver|stock|barrel|blade|gauntlet|upper limb|lower limb|string|guard|neuroptics|systems|chassis|link)?/ig, '$1')
-      .trim().toLowerCase();
-    const results = await fetch(`${apiBase}/items/search/${encodeURIComponent(fq)}`);
-    if (results.length) {
-      const url = `${apiCdnBase}img/${results[0].imageName}`;
-      if (await exists(url)) {
-        return url;
-      }
-    }
-    try {
-      const articles = await warframe.getSearchList({ query: fq, limit: 1 });
-      const details = await warframe.getArticleDetails({ ids: articles.items.map(i => i.id) });
-      const item = Object.values(details.items)[0];
-      return item && item.thumbnail ? item.thumbnail.replace(/\/revision\/.*/, '') : undefined;
-    } catch (e) {
-      logger.error(e);
-    }
-  }
-  return undefined;
-}
-
-/**
- * Returns the number of milliseconds between now and a given date
- * @param   {string} d         The date from which the current time will be subtracted
- * @param   {function} [now] A function that returns the current UNIX time in milliseconds
- * @returns {number}
- */
-function fromNow(d, now = Date.now) {
-  return new Date(d).getTime() - now();
-}
-
-function buildNotifiableData(newData, platform) {
-  const data = {
-    acolytes: newData.persistentEnemies
-      .filter(e => between(e.lastDiscoveredAt, platform)),
-    alerts: newData.alerts
-      .filter(a => !a.expired && between(a.activation, platform)),
-    baro: newData.voidTrader && between(newData.voidTrader.activation, platform)
-      ? newData.voidTrader
-      : undefined,
-    conclave: newData.conclaveChallenges
-      .filter(cc => !cc.expired
-        && !cc.rootChallenge && between(cc.activation, platform)),
-    dailyDeals: newData.dailyDeals
-      .filter(d => between(d.activation, platform)),
-    events: newData.events
-      .filter(e => !e.expired && between(e.activation, platform)),
-    invasions: newData.invasions
-      .filter(i => i.rewardTypes.length && between(i.activation, platform)),
-    featuredDeals: newData.flashSales
-      .filter(d => d.isFeatured && between(d.activation, platform)),
-    fissures: newData.fissures
-      .filter(f => !f.expired && between(f.activation, platform)),
-    news: newData.news
-      .filter(n => !n.primeAccess
-        && !n.update && !n.stream && between(n.date, platform)),
-    popularDeals: newData.flashSales
-      .filter(d => d.isPopular && between(d.activation, platform)),
-    primeAccess: newData.news
-      .filter(n => n.primeAccess && !n.stream && between(n.date, platform)),
-    sortie: newData.sortie && !newData.sortie.expired
-      && between(newData.sortie.activation, platform)
-      ? newData.sortie
-      : undefined,
-    streams: newData.news
-      .filter(n => n.stream && between(n.activation, platform)),
-    syndicateM: newData.syndicateMissions
-      .filter(m => between(m.activation, platform)),
-    tweets: newData.twitter ? newData.twitter.filter(t => t) : [],
-    updates: newData.news
-      .filter(n => n.update && !n.stream && between(n.activation, platform)),
-
-    /* Cycles data */
-    cetusCycleChange: between(newData.cetusCycle.activation, platform),
-    earthCycleChange: between(newData.earthCycle.activation, platform),
-    vallisCycleChange: between(newData.vallisCycle.activation, platform),
-    cetusCycle: newData.cetusCycle,
-    earthCycle: newData.earthCycle,
-    vallisCycle: newData.vallisCycle,
-    arbitration: newData.arbitration && between(newData.arbitration.activation, platform)
-      ? newData.arbitration
-      : undefined,
-  };
-
-  const ostron = newData.syndicateMissions.filter(mission => mission.syndicate === 'Ostrons')[0];
-  if (ostron) {
-    data.cetusCycle.bountyExpiry = ostron.expiry;
-  }
-
-  /* Nightwave */
-  if (newData.nightwave) {
-    const nWaveChallenges = newData.nightwave.activeChallenges
-      .filter(challenge => challenge.active && between(challenge.activation, platform));
-    data.nightwave = nWaveChallenges.length
-      ? Object.assign({}, JSON.parse(JSON.stringify(newData.nightwave)))
-      : undefined;
-    if (data.nightwave) {
-      data.nightwave.activeChallenges = nWaveChallenges;
-    }
-  }
-
-  return data;
-}
 
 /**
  * Notifier for alerts, invasions, etc.
@@ -157,15 +30,13 @@ class Notifier {
    * @param {Genesis} bot instance of the bot.... this needs to be refactored/removed
    */
   constructor(bot) {
-    this.bot = bot;
-    this.settings = bot.settings;
-    this.client = bot.client;
-    this.broadcaster = new Broadcaster({
-      client: bot.client,
-      settings: this.settings,
-      messageManager: bot.messageManager,
-    });
-    logger.info('[N] Ready');
+    this.settings = db;
+    this.client = rest;
+    // this.broadcaster = new Broadcaster({
+    //   client: bot.client,
+    //   settings: this.settings,
+    //   messageManager: bot.messageManager,
+    // });
 
     platforms.forEach((p) => {
       beats[p] = {
@@ -173,18 +44,45 @@ class Notifier {
         currCycleStart: null,
       };
     });
+
+    this.controlHook = new WebhookClient(process.env.CONTROL_WH_ID, process.env.CONTROL_WH_TOKEN);
+    this.socket = io(apiBase);
   }
 
   /**
    * Start the notifier
    */
   async start() {
-    for (const k of Object.keys(this.bot.worldStates)) {
-      this.bot.worldStates[k].on('newData', async (platform, newData) => {
-        logger.debug(`[N] Processing new data for ${platform}`);
-        await this.onNewData(platform, newData);
-      });
-    }
+    this.controlHook.send('<:PeepoloveGenesis:547048445773348889> Notifier online');
+    logger.info('Notifier initialized');
+
+    this.socket.on('connected', (data) => {
+      this.controlHook.send('<:PeepoloveGenesis:547048445773348889> Socket initialized');
+    });
+
+    this.socket.on('ws', ({
+      event: type, platform, language = 'en', eventKey, data,
+    }) => {
+      const locale = Object.keys(i18ns).find(key => key.startsWith(language));
+      const i18n = i18ns[locale] || i18ns.en;
+      const deps = {
+        platform, language, eventKey, locale, i18n,
+      };
+      // this.determineTarget(type).forEach((call) => {
+      //   call.bind(this)(data, deps);
+      // });
+
+      this.logger.debug(`received a ${eventKey} : ${type} : ${language} : ${platform}`);
+    });
+
+    this.socket.on('tweet', async (tweet) => {
+      if (tweet) {
+        logger.debug(`received a ${tweet.id}`);
+        platforms.forEach((platform) => {
+          this.sendTweets(tweet, { eventKey: tweet.id, platform });
+        });
+      }
+    });
   }
 
   /**
@@ -244,9 +142,78 @@ class Notifier {
     }
   }
 
+  /**
+   * Determine the targets for the new data
+   * @param  {string} type type of new event
+   * @returns {function[]}      functions to call
+   */
+  determineTarget(type) {
+    const targets = [];
+    switch (type) {
+      case 'alerts':
+        targets.push(this.sendAlert);
+        break;
+      case 'arbitration':
+        targets.push(this.sendArbitration);
+        break;
+      case 'cetusCycle':
+        targets.push(this.sendCetusCycle);
+        break;
+      case 'conclaveChallenges':
+        targets.push(this.sendConclaveDailies, this.sendConclaveWeeklies);
+        break;
+      case 'dailyDeals':
+        targets.push(this.sendDarvo);
+        break;
+      case 'earthCycle':
+        targets.push(this.sendEarthCycle);
+        break;
+      case 'events':
+        targets.push(this.sendEvent);
+        break;
+      case 'fissures':
+        targets.push(this.sendFissure);
+        break;
+      case 'flashSales':
+        targets.push(this.sendFeaturedDeal, this.sendPopularDeal);
+        break;
+      case 'invasions':
+        targets.push(this.sendInvasion);
+        break;
+      case 'kuva':
+        targets.push(this.sendKuva);
+        break;
+      case 'news':
+        targets.push(this.sendNews, this.sendStreams, this.sendPrimeAccess);
+        break;
+      case 'nightwave':
+        targets.push(this.sendNightwave);
+        break;
+      case 'persistentEnemies':
+        targets.push(this.sendAcolytes);
+        break;
+      case 'sortie':
+        targets.push(this.sendSortie);
+        break;
+      case 'syndicateMissions':
+        targets.push(this.sendSyndicates);
+        break;
+      case 'vallisCycle':
+        targets.push(this.sendVallisCycle);
+        break;
+      case 'voidTrader':
+        targets.push(this.sendBaro);
+        break;
+
+      default:
+        break;
+    }
+    return targets;
+  }
+
   async sendAcolytes(newAcolytes, platform) {
     await Promise.all(newAcolytes.map(async a => this.broadcaster.broadcast(new embeds.Enemy(
-      this.bot,
+      {},
       [a], platform,
     ), platform, `enemies${a.isDiscovered ? '' : '.departed'}`, null, 3600000)));
   }
@@ -257,7 +224,7 @@ class Notifier {
 
   async sendAlert(a, platform) {
     Object.entries(i18ns).forEach(async ([locale, i18n]) => {
-      const embed = new embeds.Alert(this.bot, [a], platform, i18n);
+      const embed = new embeds.Alert({}, [a], platform, i18n);
       embed.locale = locale;
       try {
         const thumb = await getThumbnailForItem(a.mission.reward.itemString);
@@ -277,7 +244,7 @@ class Notifier {
     if (!arbitration) return;
 
     for (const [locale, i18n] of i18ns) {
-      const embed = new embeds.Arbitration(this.bot, arbitration, platform, i18n);
+      const embed = new embeds.Arbitration({}, arbitration, platform, i18n);
       embed.locale = locale;
       const type = `arbitration.${arbitration.enemy.toLowerCase()}.${arbitration.type.replace(/\s/g, '').toLowerCase()}`;
       await this.broadcaster.broadcast(embed, platform, type);
@@ -285,7 +252,7 @@ class Notifier {
   }
 
   async sendBaro(newBaro, platform) {
-    const embed = new embeds.VoidTrader(this.bot, newBaro, platform);
+    const embed = new embeds.VoidTrader({}, newBaro, platform);
     if (embed.fields.length > 25) {
       const fields = createGroupedArray(embed.fields, 15);
       fields.forEach(async (fieldGroup) => {
@@ -302,7 +269,7 @@ class Notifier {
     const minutesRemaining = cetusCycleChange ? '' : `.${Math.round(fromNow(newCetusCycle.expiry) / 60000)}`;
     const type = `cetus.${newCetusCycle.isDay ? 'day' : 'night'}${minutesRemaining}`;
     await this.broadcaster.broadcast(
-      new embeds.Cycle(this.bot, newCetusCycle),
+      new embeds.Cycle({}, newCetusCycle),
       platform, type, null, fromNow(newCetusCycle.expiry),
     );
   }
@@ -310,7 +277,7 @@ class Notifier {
   async sendConclaveDailies(newDailies, platform) {
     const dailies = newDailies.filter(challenge => challenge.category === 'day');
     if (dailies.length > 0 && dailies[0].activation) {
-      const embed = new embeds.Conclave(this.bot, dailies, 'day', platform);
+      const embed = new embeds.Conclave({}, dailies, 'day', platform);
       await this.broadcaster.broadcast(embed, platform, 'conclave.dailies', null, fromNow(dailies[0].expiry));
     }
   }
@@ -318,30 +285,30 @@ class Notifier {
   async sendConclaveWeeklies(newWeeklies, platform) {
     const weeklies = newWeeklies.filter(challenge => challenge.category === 'week');
     if (weeklies.length > 0) {
-      const embed = new embeds.Conclave(this.bot, weeklies, 'week', platform);
+      const embed = new embeds.Conclave({}, weeklies, 'week', platform);
       await this.broadcaster.broadcast(embed, platform, 'conclave.weeklies', null, fromNow(weeklies[0].expiry));
     }
   }
 
   async sendDarvo(newDarvoDeals, platform) {
-    await Promise.all(newDarvoDeals.map(d => this.broadcaster.broadcast(new embeds.Darvo(this.bot, d, platform), platform, 'darvo', null, fromNow(d.expiry))));
+    await Promise.all(newDarvoDeals.map(d => this.broadcaster.broadcast(new embeds.Darvo({}, d, platform), platform, 'darvo', null, fromNow(d.expiry))));
   }
 
   async sendEarthCycle(newEarthCycle, platform, earthCycleChange) {
     const minutesRemaining = earthCycleChange ? '' : `.${Math.round(fromNow(newEarthCycle.expiry) / 60000)}`;
     const type = `earth.${newEarthCycle.isDay ? 'day' : 'night'}${minutesRemaining}`;
     await this.broadcaster.broadcast(
-      new embeds.Cycle(this.bot, newEarthCycle),
+      new embeds.Cycle({}, newEarthCycle),
       platform, type, null, fromNow(newEarthCycle.expiry),
     );
   }
 
   async sendEvent(newEvents, platform) {
-    await Promise.all(newEvents.map(e => this.broadcaster.broadcast(new embeds.Event(this.bot, e, platform), platform, 'operations', null, fromNow(e.expiry))));
+    await Promise.all(newEvents.map(e => this.broadcaster.broadcast(new embeds.Event({}, e, platform), platform, 'operations', null, fromNow(e.expiry))));
   }
 
   async sendFeaturedDeals(newFeaturedDeals, platform) {
-    await Promise.all(newFeaturedDeals.map(d => this.broadcaster.broadcast(new embeds.Sales(this.bot, [d], platform), platform, 'deals.featured', null, fromNow(d.expiry))));
+    await Promise.all(newFeaturedDeals.map(d => this.broadcaster.broadcast(new embeds.Sales({}, [d], platform), platform, 'deals.featured', null, fromNow(d.expiry))));
   }
 
   async sendFissures(newFissures, platform) {
@@ -350,7 +317,7 @@ class Notifier {
 
   async sendFissure(fissure, platform) {
     Object.entries(i18ns).forEach(async ([locale, i18n]) => {
-      const embed = new embeds.Fissure(this.bot, [fissure], platform, i18n);
+      const embed = new embeds.Fissure({}, [fissure], platform, i18n);
       embed.locale = locale;
       const id = `fissures.t${fissure.tierNum}.${fissure.missionType.toLowerCase()}`;
       await this.broadcaster.broadcast(embed, platform, id, null, fromNow(fissure.expiry));
@@ -363,7 +330,7 @@ class Notifier {
 
   async sendInvasion(invasion, platform) {
     Object.entries(i18ns).forEach(async ([locale, i18n]) => {
-      const embed = new embeds.Invasion(this.bot, [invasion], platform, i18n);
+      const embed = new embeds.Invasion({}, [invasion], platform, i18n);
       embed.locale = locale;
       try {
         const reward = invasion.attackerReward.itemString || invasion.defenderReward.itemString;
@@ -380,7 +347,7 @@ class Notifier {
   }
 
   async sendNews(newNews, platform) {
-    await Promise.all(newNews.map(i => this.broadcaster.broadcast(new embeds.News(this.bot, [i], undefined, platform), platform, 'news')));
+    await Promise.all(newNews.map(i => this.broadcaster.broadcast(new embeds.News({}, [i], undefined, platform), platform, 'news')));
   }
 
   async sendNightwave(nightwave, platform) {
@@ -401,13 +368,13 @@ class Notifier {
         nightwave.activeChallenges.forEach(async (challenge) => {
           const nwCopy = Object.assign({}, nightwave);
           nwCopy.activeChallenges = [challenge];
-          const embed = new embeds.Nightwave(this.bot, nwCopy, platform, i18n);
+          const embed = new embeds.Nightwave({}, nwCopy, platform, i18n);
           embed.locale = locale;
           await this.broadcaster.broadcast(embed, platform,
             makeType(challenge), null, fromNow(challenge.expiry));
         });
       } else {
-        const embed = new embeds.Nightwave(this.bot, nightwave, platform, i18n);
+        const embed = new embeds.Nightwave({}, nightwave, platform, i18n);
         embed.locale = locale;
         await this.broadcaster.broadcast(embed, platform, 'nightwave', null, fromNow(nightwave.expiry));
       }
@@ -415,16 +382,16 @@ class Notifier {
   }
 
   async sendPopularDeals(newPopularDeals, platform) {
-    await Promise.all(newPopularDeals.map(d => this.broadcaster.broadcast(new embeds.Sales(this.bot, [d], platform), platform, 'deals.popular', null, 86400000)));
+    await Promise.all(newPopularDeals.map(d => this.broadcaster.broadcast(new embeds.Sales({}, [d], platform), platform, 'deals.popular', null, 86400000)));
   }
 
   async sendPrimeAccess(newNews, platform) {
-    await Promise.all(newNews.map(i => this.broadcaster.broadcast(new embeds.News(this.bot, [i], 'primeaccess', platform), platform, 'primeaccess')));
+    await Promise.all(newNews.map(i => this.broadcaster.broadcast(new embeds.News({}, [i], 'primeaccess', platform), platform, 'primeaccess')));
   }
 
   async sendSortie(newSortie, platform) {
     if (!newSortie) return;
-    const embed = new embeds.Sortie(this.bot, newSortie, platform);
+    const embed = new embeds.Sortie({}, newSortie, platform);
     try {
       const thumb = await getThumbnailForItem(newSortie.boss, true);
       if (thumb) {
@@ -438,7 +405,7 @@ class Notifier {
   }
 
   async sendStreams(newStreams, platform) {
-    await Promise.all(newStreams.map(i => this.broadcaster.broadcast(new embeds.News(this.bot, [i], undefined, platform), platform, 'streams')));
+    await Promise.all(newStreams.map(i => this.broadcaster.broadcast(new embeds.News({}, [i], undefined, platform), platform, 'streams')));
   }
 
   async checkAndSendSyndicate(embed, syndicate, timeout, platform) {
@@ -453,7 +420,7 @@ class Notifier {
       key, display, prefix, timeout, notifiable,
     } of syndicates) {
       if (notifiable) {
-        const embed = new embeds.Syndicate(this.bot, newSyndicates, display, platform);
+        const embed = new embeds.Syndicate({}, newSyndicates, display, platform);
         const eKey = `${prefix || ''}${key}`;
         const deleteAfter = timeout || fromNow(newSyndicates[0].expiry);
         await this.checkAndSendSyndicate(embed, eKey, deleteAfter, platform);
@@ -463,18 +430,18 @@ class Notifier {
 
   async sendTweets(newTweets, platform) {
     await Promise.all(newTweets.map(t => this.broadcaster
-      .broadcast(new embeds.Tweet(this.bot, t.tweets[0]), platform, t.id, null, 3600)));
+      .broadcast(new embeds.Tweet({}, t.tweets[0]), platform, t.id, null, 3600)));
   }
 
   async sendUpdates(newNews, platform) {
-    await Promise.all(newNews.map(i => this.broadcaster.broadcast(new embeds.News(this.bot, [i], 'updates', platform), platform, 'updates')));
+    await Promise.all(newNews.map(i => this.broadcaster.broadcast(new embeds.News({}, [i], 'updates', platform), platform, 'updates')));
   }
 
   async sendVallisCycle(newCycle, platform, cycleChange) {
     const minutesRemaining = cycleChange ? '' : `.${Math.round(fromNow(newCycle.expiry) / 60000)}`;
     const type = `solaris.${newCycle.isWarm ? 'warm' : 'cold'}${minutesRemaining}`;
     await this.broadcaster.broadcast(
-      new embeds.Solaris(this.bot, newCycle),
+      new embeds.Solaris({}, newCycle),
       platform, type, null, fromNow(newCycle.expiry),
     );
   }

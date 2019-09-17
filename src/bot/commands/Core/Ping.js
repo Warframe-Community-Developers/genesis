@@ -24,12 +24,7 @@ class Ping extends Command {
    */
   async run(message) {
     const hosts = [
-      'content.warframe.com',
-      'forums.warframe.com',
-      'store.warframe.com',
-      'nexus-stats.com',
-      'warframe.market',
-      'warframestat.us',
+      'api.warframestat.us',
       'hub.warframestat.us',
       'drops.warframestat.us',
     ];

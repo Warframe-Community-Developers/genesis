@@ -6,6 +6,7 @@ const Promise = require('bluebird');
 const path = require('path');
 const fs = require('fs');
 
+const logger = require('../Logger');
 const { assetBase } = require('../CommonFunctions');
 
 const props = (obj) => {
@@ -34,6 +35,19 @@ const copyChildrenQueries = (queriesClass) => {
       Database.prototype[key] = queriesClass[key];
     }
   });
+};
+
+// eslint-disable-next-line
+const debugQuery = (query) => {
+  const { strings, values } = JSON.parse(JSON.stringify(query));
+  const tokens = [];
+  strings.forEach((str, ind) => {
+    tokens.push(JSON.stringify(str));
+    if (values[ind]) {
+      tokens.push(values[ind]);
+    }
+  });
+  logger.error(tokens.join(''));
 };
 
 /**
@@ -91,19 +105,18 @@ class Database {
    */
   constructor(dbOptions, bot) {
     this.bot = bot;
-    this.logger = bot.logger;
 
-    if (bot.client) {
+    if (bot && bot.client) {
       this.scope = 'bot';
     } else {
       this.scope = 'worker';
     }
 
     this.defaults = {
-      username: this.bot.client && this.bot.client.user
+      username: this.bot && this.bot.client && this.bot.client.user
         ? this.bot.client.user.username
         : 'Genesis',
-      avatar: this.bot.client && this.bot.client.user
+      avatar: this.bot && this.bot.client && this.bot.client.user
         ? this.bot.client.user.displayAvatarURL().replace('.webp', '.png')
           .replace('.webm', '.gif').replace('?size=2048', '')
         : `${assetBase}/avatar.png`,
@@ -146,18 +159,6 @@ class Database {
       });
 
     this.clusterId = process.env.CLUSTER_ID || 0;
-  }
-
-  debugQuery(query) {
-    const { strings, values } = JSON.parse(JSON.stringify(query));
-    const tokens = [];
-    strings.forEach((str, ind) => {
-      tokens.push(JSON.stringify(str));
-      if (values[ind]) {
-        tokens.push(values[ind]);
-      }
-    });
-    this.logger.error(tokens.join(''));
   }
 
   /**

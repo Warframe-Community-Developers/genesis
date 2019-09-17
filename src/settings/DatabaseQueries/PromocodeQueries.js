@@ -2,6 +2,8 @@
 
 const SQL = require('sql-template-strings');
 
+const logger = require('../../Logger');
+
 class PromocodeQueries {
   constructor(db) {
     this.db = db;
@@ -129,7 +131,7 @@ class PromocodeQueries {
     const res = await this.db.query(query);
     let codes = [];
     if (res[0]) {
-      this.logger.debug(JSON.stringify(res[0]));
+      logger.debug(JSON.stringify(res[0]));
       codes = res[0].map(row => ({
         id: row.pool_id,
         platform: row.platform,

@@ -1,7 +1,10 @@
 'use strict';
 
+process.env.SCOPE = 'TASK';
+
 const fs = require('fs');
 const path = require('path');
+const logger = require('../Logger');
 const BaseCommand = require('../models/Command');
 
 const generateManifest = async () => {
@@ -10,16 +13,11 @@ const generateManifest = async () => {
 
   const categories = files.filter(f => f.indexOf('.js') === -1);
   files = files.filter(f => f.indexOf('.js') > -1);
-  try {
-    categories.forEach((category) => {
-      files = files.concat(fs.readdirSync(path.join(commandDir, category))
+  categories.forEach((category) => {
+    files = files
+      .concat(fs.readdirSync(path.join(commandDir, category))
         .map(f => path.join(category, f)));
-    });
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(e);
-    return;
-  }
+  });
 
   const commands = files
     .map((f) => {
@@ -34,8 +32,7 @@ const generateManifest = async () => {
         }
         return null;
       } catch (err) {
-      // eslint-disable-next-line no-console
-        console.error(err);
+        logger.error(err);
         return null;
       }
     })
@@ -44,14 +41,14 @@ const generateManifest = async () => {
 
   try {
     fs.writeFileSync('commands.json', JSON.stringify(commands), 'utf8');
-    if (['DEBUG', 'INFO'].some(str => str === process.env.LOG_LEVEL)) {
-      // eslint-disable-next-line no-console
-      console.log('[DEBUG] Wrote command manifest...');
-    }
+    logger.info(`Wrote command manifest... ${commands.length} commands in ${categories.length} categories`);
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(e);
+    logger.error(e);
   }
 };
+
+if (process.env.RUN_AT_ONCE) {
+  generateManifest();
+}
 
 module.exports = generateManifest;
