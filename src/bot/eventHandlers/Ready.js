@@ -83,8 +83,8 @@ async function updatePresence(self) {
         cetusState.isDay = !cetusState.isDay;
       }
 
-      const vs = vallisState ? `${timeDeltaToMinutesString(vsFromNow) || '0m'} to ${vallisState.isWarm ? '❄' : '🔥'} | ` : '';
-      const cs = cetusState ? `${timeDeltaToMinutesString(csFromNow) || '0m'} to  ${cetusState.isDay ? '🌙' : '☀'} | ` : '';
+      const vs = vallisState ? `${timeDeltaToMinutesString(vsFromNow) || '0m'}: ${vallisState.isWarm ? '❄' : '🔥'} | ` : '';
+      const cs = cetusState ? `${timeDeltaToMinutesString(csFromNow) || '0m'}: ${cetusState.isDay ? '🌙' : '☀'} | ` : '';
       final = `${vs}${cs}${base}`;
     }
 
