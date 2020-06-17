@@ -70,13 +70,13 @@ class LeaveRole extends Command {
     const filteredRoles = roles.filter(storedRole => role.id === storedRole.id);
     const botIsHigher = message.guild.me.roles.highest.comparePositionTo(role);
     const roleRemoveable = filteredRoles.length > 0
-          && message.member.roles.get(role.id)
+          && message.member.roles.cache.get(role.id)
           && message.channel.permissionsFor(this.bot.client.user.id).has('MANAGE_ROLES')
           && botIsHigher
           && filteredRoles[0].leaveable;
     const userDoesntHaveRole = filteredRoles.length > 0
           && message.channel.permissionsFor(this.bot.client.user.id).has('MANAGE_ROLES')
-          && !message.member.roles.get(role.id);
+          && !message.member.roles.cache.get(role.id);
     if (!botIsHigher) {
       await this.sendBotRoleLow(message);
       return this.messageManager.statuses.FAILURE;

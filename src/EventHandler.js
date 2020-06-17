@@ -43,13 +43,14 @@ class EventHandler {
     });
 
     if (this.handlers.length !== 0) {
-      this.logger.debug('Decaching handles');
+      this.logger.silly('Decaching handles');
       files.forEach((f) => {
         decache(path.join(handlersDir, f));
       });
     }
 
-    this.logger.debug(`Loading handles: ${files}`);
+    this.logger.info('Loading handles');
+    this.logger.silly(`${files}`);
 
     this.handlers = files.map((f) => {
       try {
@@ -58,7 +59,7 @@ class EventHandler {
         if (Handler.prototype instanceof BaseEventHandler) {
           const handler = new Handler(this.bot);
 
-          this.logger.debug(`Adding ${handler.id}`);
+          this.logger.silly(`Adding ${handler.id}`);
           return handler;
         }
         return null;

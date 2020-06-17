@@ -43,18 +43,50 @@ class Whereis extends Command {
     try {
       query = query.trim().toLowerCase();
       const queryWReplaces = query.replace(/prime/ig, 'p.').replace(/blueprint/ig, 'bp');
-      let results = await this.ws.search('drops', queryWReplaces);
+      const queryResults = (await this.ws.search('drops', queryWReplaces))
+        .map((result) => {
+          const r = {
+            item: result.item,
+            rarity: result.rarity,
+            chance: `${String(parseFloat(result.chance).toFixed(2)).padEnd(5, '0')}%`,
+            chanceNum: parseFloat(result.chance).toFixed(2),
+            place: result.place
+              .replace('Level ', '')
+              .replace(' Orb Vallis Bounty', '')
+              .replace(' Cetus Bounty', '')
+              .trim(),
+          };
+          r.place = r.place.split('/')[1] || r.place;
+          return r;
+        });
 
-      results = results.map(result => ({
-        item: result.item,
-        rarity: result.rarity,
-        chance: `${String(parseFloat(result.chance).toFixed(2)).padEnd(5, '0')}%`,
-        place: result.place
-          .replace('Level ', '')
-          .replace('Orb Vallis Bounty', 'Bounty')
-          .replace('Cetus Bounty', 'Bounty')
-          .trim(),
-      }));
+      let results = [];
+
+      const map = new Map();
+      for (const item of queryResults) {
+        const isRelic = item.place.includes('Relic');
+        const relic = item.place.split('(')[0].trim();
+        if (isRelic && (!map.has(relic) || map.get(relic) < item.chanceNum)) {
+          if (map.has(relic)) {
+            let indexToRemove;
+            results.forEach((urelic, index) => {
+              if (urelic.place.includes(relic)) {
+                indexToRemove = index;
+              }
+            });
+            if (typeof indexToRemove !== 'undefined') {
+              results.splice(indexToRemove, 1);
+            }
+          }
+          map.set(relic, item.chanceNum);
+          results.push(item);
+        } else if (!isRelic && (!map.has(item.place) || map.get(item.place) < item.chanceNum)) {
+          map.set(item.place, item.chanceNum);
+          results.push(item);
+        }
+      }
+
+      results = [...(new Set(results))];
 
       const longestName = results.length ? results.map(result => result.item)
         .reduce((a, b) => (a.length > b.length ? a : b)) : '';

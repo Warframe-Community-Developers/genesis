@@ -17,15 +17,10 @@ class ArbitrationEmbed extends BaseEmbed {
    */
   constructor(bot, arbitration, platform, i18n) {
     super();
-    this.thumbnail = {
-      url: arbiThumb,
-    };
+    this.thumbnail.url = arbiThumb;
     this.color = 0x742725;
     this.title = i18n`[${platform.toUpperCase()}] Worldstate - Arbitration`;
-    this.fields = [{
-      name: arbitration.node,
-      value: i18n`${arbitration.type} against ${arbitration.enemy}`,
-    }];
+    this.addField(arbitration.node, `${arbitration.type} against ${arbitration.enemy}`);
 
     this.footer.text = 'Expires';
     this.timestamp = arbitration.expiry;

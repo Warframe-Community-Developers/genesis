@@ -1,19 +1,70 @@
 {
-  "excavation": true,
-  "mobiledefense": false,
-  "extermination": false,
-  "assassination": false,
-  "rescue": false,
-  "sabotage": false,
-  "defense": true,
-  "disruption": true,
-  "survival": true,
-  "spy": false,
-  "arena": true,
-  "capture": false,
-  "defection": true,
-  "hijack": false,
-  "infestedsalvage": true,
-  "interception": true,
-  "sanctuaryonslaught": true
+  "excavation": {
+    "arbi": true,
+    "fissure": true
+  },
+  "mobiledefense": {
+    "arbi": false,
+    "fissure": true
+  },
+  "extermination": {
+    "arbi": false,
+    "fissure": true
+  },
+  "assassination": {
+    "arbi": false,
+    "fissure": true
+  },
+  "rescue": {
+    "arbi": false,
+    "fissure": true
+  },
+  "sabotage": {
+    "arbi": false,
+    "fissure": true
+  },
+  "defense": {
+    "arbi": true,
+    "fissure": true
+  },
+  "disruption": {
+    "arbi": true,
+    "fissure": true
+  },
+  "survival": {
+    "arbi": true,
+    "fissure": true
+  },
+  "spy": {
+    "arbi": false,
+    "fissure": true
+  },
+  "arena": {
+    "arbi": false,
+    "fissure": false
+  },
+  "capture": {
+    "arbi": false,
+    "fissure": true
+  },
+  "defection": {
+    "arbi": true,
+    "fissure": true
+  },
+  "hijack": {
+    "arbi": false,
+    "fissure": true
+  },
+  "infestedsalvage": {
+    "arbi": true,
+    "fissure": true
+  },
+  "interception": {
+    "arbi": true,
+    "fissure": true
+  },
+  "sanctuaryonslaught": {
+    "arbi": true,
+    "fissure": false
+  }
 }

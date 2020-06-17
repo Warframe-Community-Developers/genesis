@@ -19,6 +19,9 @@ class BaseEmbed extends MessageEmbed {
         icon_url: defaults.icon,
       },
       timestamp: new Date(),
+      thumbnail: {
+        url: undefined,
+      },
     });
     if (bot) {
       this.bot = bot;

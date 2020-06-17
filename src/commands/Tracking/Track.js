@@ -31,7 +31,7 @@ class Track extends Command {
     const unsplitItems = getEventsOrItems(message);
     const roomId = new RegExp(`${captures.channel}|here`, 'ig');
 
-    if (unsplitItems.length === 0) {
+    if (!unsplitItems.length) {
       return this.failure(message, ctx.prefix);
     }
     const trackables = trackablesFromParameters(unsplitItems);
@@ -43,7 +43,9 @@ class Track extends Command {
     trackables.items = trackables.items
       .filter((elem, pos) => trackables.items.indexOf(elem) === pos);
 
-    const channelParam = message.strippedContent.match(roomId) ? message.strippedContent.match(roomId)[0].trim().replace(/<|>|#/ig, '') : undefined;
+    const channelParam = message.strippedContent.match(roomId)
+      ? message.strippedContent.match(roomId)[0].trim().replace(/<|>|#/ig, '')
+      : undefined;
     const channel = getChannel(channelParam, message);
 
     if (trackables.events.length) {

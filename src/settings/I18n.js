@@ -39,7 +39,7 @@ class I18n {
       this.locale = locale;
       this.bundle = locales[locale];
     } else {
-      this.locale = 'en-US';
+      this.locale = 'en';
       this.bundle = locales[this.locale];
     }
 
