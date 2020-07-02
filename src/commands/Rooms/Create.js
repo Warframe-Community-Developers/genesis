@@ -117,7 +117,7 @@ class Create extends Command {
     }
 
     const modRole = message.guild.roles.cache.get(await this.settings.getGuildSetting(message.guild, 'modRole'));
-    const useModRole = modRole && modRole.id ? message.guild.cache.roles.has(modRole.id) : false;
+    const useModRole = modRole && modRole.id ? message.guild.roles.cache.has(modRole.id) : false;
 
     if (ctx.tempCategory || (message.guild && message.guild.channels.cache.has(ctx.tempCategory))) {
       useText = false;
@@ -148,7 +148,7 @@ If this is in error, please log a bug report with \`${ctx.prefix}bug\`.`;
         if (useable.includes(roomType)) {
           const users = getUsersForCall(message);
           const name = optName || `${type}-${message.member.displayName}`.toLowerCase();
-          const existingName = message.guild.channels.find(channel => channel.name === name);
+          const existingName = message.guild.channels.cache.find(channel => channel.name === name);
           if (users.length < 11 && !existingName) {
             const overwrites = this.createOverwrites({
               users,
