@@ -60,7 +60,7 @@
     "node-fetch": "^2.6.1",
     "node-wikia": "0.0.3",
     "numeral": "^2.0.6",
-    "parse-duration": "^0.4.4",
+    "parse-duration": "^1.0.0",
     "ping": "^0.4.0",
     "rss-feed-emitter": "^3.2.2",
     "sql-template-strings": "^2.2.2",
